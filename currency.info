@@ -1,0 +1,8 @@
+name = Currency exchange module
+core = 7.x
+version = 7.x-dev
+
+dependencies[] = views
+dependencies[] = charts
+dependencies[] = date
+dependencies[] = visualization

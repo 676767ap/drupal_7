@@ -1,0 +1,211 @@
+<?php
+/**
+ * Создание типа материала для хранения данных о курсах валют.
+ */
+if (!in_array('currency', node_type_get_names())) {
+  $cur_node_type = node_type_set_defaults(array(
+    'type' => 'currency',
+    'name' => 'Currency',
+    'base' => 'node_content',
+    'description' => 'Currency',
+    'custom' => 1,
+    'modified' => 1,
+    'locked' => 0,
+    'title_label' => 'Currency code',
+  ));
+  node_type_save($cur_node_type);
+  variable_set('node_options_currency', array('status'));
+  variable_set('menu_options_currency', array());
+  variable_set('comment_currency', COMMENT_NODE_HIDDEN);
+}
+/**
+ * Создание полей типа материала для хранения данных о курсах валют.
+ */
+function currency_enable() {
+  $field_inst = field_info_instances('node', 'currency');
+  /**
+   * цифровой код валюты
+   */
+  if (!field_info_field('field_num_code')) {
+    $fieldNumCode = array(
+      'field_name' => 'field_num_code',
+      'type' => 'number_integer',
+      'cardinality' => 1,
+      'settings' => array(),
+      'entity_types' => array('node'),
+    );
+    field_create_field($fieldNumCode);
+    if (!isset($field_inst['field_num_code'])){
+      $instance_num_code = array(
+        'field_name' => 'field_num_code',
+        'entity_type' => 'node',
+        'bundle' => 'currency',
+        'label' => t('Currency number code'),
+        'description' => t('Currency number code (integer)'),
+        'weight' => 1,
+        'widget' => array(
+          'type' => 'number',
+          'label' => t('Num code'),
+        )
+      );
+      field_create_instance($instance_num_code);
+    }
+  }
+  /**
+   * 3-х буквенный код валюты. (RUB)
+   */
+  if (!field_info_field('field_char_code')) {
+    $fieldCharCode = array(
+      'field_name' => 'field_char_code',
+      'type' => 'text',
+      'cardinality' => 1,
+      'settings' => array(),
+      'entity_types' => array('node'),
+    );
+    field_create_field($fieldCharCode);
+    if (!isset($field_inst['field_char_code'])){
+      $instance_char_code = array(
+        'field_name' => 'field_char_code',
+        'entity_type' => 'node',
+        'bundle' => 'currency',
+        'label' => t('Character currency code'),
+        'description' => t('Currency character code (varChar)'),
+        'weight' => 1,
+        'widget' => array(
+          'type' => 'text',
+          'label' => t('Char code'),
+         ),
+      );
+      field_create_instance($instance_char_code);
+    }
+  }
+  /**
+   * Номинал в базе ЦБ.
+   */
+  if (!field_info_field('field_nominal')) {
+    $fieldNominal = array(
+      'field_name' => 'field_nominal',
+      'type' => 'number_integer',
+      'cardinality' => 1,
+      'settings' => array(),
+      'entity_types' => array('node'),
+    );
+    field_create_field($fieldNominal);
+    if (!isset($field_inst['field_nominal'])){
+      $instance_nominal = array(
+        'field_name' => 'field_nominal',
+        'entity_type' => 'node',
+        'bundle' => 'currency',
+        'label' => t('Currency nominal'),
+        'description' => t('Currency nominal'),
+        'weight' => 1,
+        'widget' => array(
+          'type' => 'number',
+          'label' => t('Nominal'),
+         ),
+      );
+      field_create_instance($instance_nominal);
+    }
+  }
+  /**
+   * Значение курса.
+   */
+  if (!field_info_field('field_cur_value')) {
+    $fieldValue = array(
+      'field_name' => 'field_cur_value',
+      'type' => 'number_float',
+      'cardinality' => 1,
+      'settings' => array(),
+      'entity_types' => array('node'),
+    );
+    field_create_field($fieldValue);
+    if (!isset($field_inst['field_cur_value'])){
+      $instance_value = array(
+        'field_name' => 'field_cur_value',
+        'entity_type' => 'node',
+        'bundle' => 'currency',
+        'label' => t('Currency rate value'),
+        'description' => t('Currency rate value'),
+        'weight' => 1,
+        'widget' => array(
+          'type' => 'number',
+          'label' => t('Num code'),
+         ),
+      );
+      field_create_instance($instance_value);
+    }
+  }
+  /**
+   * Дата в timestamp.
+   */
+  if (!field_info_field('field_cur_date')) {
+    $fieldCurDate = array(
+      'field_name' => 'field_cur_date',
+      'type' => 'text',
+      'cardinality' => 1,
+      'settings' => array(),
+      'entity_types' => array('node'),
+      );
+    field_create_field($fieldCurDate);
+    if (!isset($field_inst['field_cur_date'])){
+      $instance_cur_date = array(
+        'field_name' => 'field_cur_date',
+        'entity_type' => 'node',
+        'bundle' => 'currency',
+        'label' => t('Date of measure'),
+        'description' => t('Date of measure'),
+        'weight' => 1,
+        'widget' => array(
+          'type' => 'text',
+          'label' => t('Date of measure'),
+         ),
+      );
+      field_create_instance($instance_cur_date);
+    }
+  }
+  /**
+   * Дата в формате d.m.Y.
+   */
+  if (!field_info_field('field_cur_date_formated')) {
+    $fieldCurDateF = array(
+      'field_name' => 'field_cur_date_formated',
+      'type' => 'text',
+      'cardinality' => 1,
+      'settings' => array(),
+      'entity_types' => array('node'),
+      );
+    field_create_field($fieldCurDateF);
+    if (!isset($field_inst['field_cur_date_formated'])){
+      $instance_cur_date_f = array(
+        'field_name' => 'field_cur_date_formated',
+        'entity_type' => 'node',
+        'bundle' => 'currency',
+        'label' => t('Date of measure in humanreadable form'),
+        'description' => t('Date of measure in humanreadable form'),
+        'weight' => 1,
+        'widget' => array(
+          'type' => 'text',
+          'label' => t('Date of measure in humanreadable form'),
+         ),
+      );
+      field_create_instance($instance_cur_date_f);
+    }
+  }
+}
+/**
+ * Чистим БД при удалении модуля.
+ */
+function currency_uninstall () {
+  $query = db_select('node', 'n');
+  $query
+    ->fields('n', array('nid'))
+    ->condition('n.type', 'currency');
+  $result = $query->execute();
+  $nodeids = array();
+  while ($record = $result->fetchAssoc()) {
+      $nodeids[] = $record['nid'];
+  }
+  node_delete_multiple($nodeids);
+  node_type_delete('currency');
+}
+?>

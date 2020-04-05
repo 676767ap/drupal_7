@@ -1,0 +1,433 @@
+<?php
+/**
+ * Implements hook_views_api().
+ */
+function currency_views_api() {
+  return array(
+    'api' => 3.0,
+    'path' => drupal_get_path('module', 'currency') . '/views',
+  );
+}
+/**
+ * Implements hook_menu().
+ */
+function currency_menu() {
+   $items['exchange'] = array(
+     'title' => 'График курса',
+     'page callback' => 'drupal_get_form',
+     'page arguments' => array('currency_chart_form'),
+     'access callback' => TRUE,
+     'access arguments' => array('access content'),
+     'type' => MENU_CALLBACK
+  );
+  $items['load_data'] = array(
+    'title' => 'Загрузка данных',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('currency_load_data_form'),
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK
+  );
+  $items['load_json/%'] = array(
+    'title' => 'load_json',
+    'page callback' => 'currency_load_json',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK
+  );
+  return $items;
+}
+/**
+ * Отображение данныx в формате JSON.
+ */
+function currency_load_json($date_num) {
+  $req_arr = explode("_", htmlspecialchars($date_num));
+  if (count($req_arr) == 3) {
+    $date_convert_begin = str_replace(".", "/", $req_arr[0]);
+    $date_convert_end = str_replace(".", "/", $req_arr[1]);
+    $rangeArr = currency_get_range ($date_convert_begin, $date_convert_end, $req_arr[2]);
+    print (json_encode($rangeArr));
+  } else {
+    print 'Erorr in page args!';
+  }
+}
+/**
+ * Получение курсов валют на конкретную дату.
+ */
+function currency_get_rate ($date) {
+  $url = 'http://www.cbr.ru/scripts/XML_daily.asp';
+  $data = array(
+    'date_req' => $date
+  );
+  $full_url = url($url, array('query' => $data));
+  if ($result = drupal_http_request($full_url)) {
+    $res_arr = $result->data;
+    $xml = new SimpleXMLElement($res_arr);
+    return $xml;
+  } else {
+    return FALSE;
+  }
+}
+/**
+ * Получение динамики курса конкретной валюты за период.
+ */
+function currency_get_range ($date_begin, $date_end, $cur_num) {
+  $url = 'http://www.cbr.ru/scripts/XML_dynamic.asp';
+  $data = array(
+    'date_req1' => $date_begin,
+    'date_req2' => $date_end,
+    'VAL_NM_RQ' => $cur_num
+  );
+  $full_url = url($url, array('query' => $data));
+  if ($result = drupal_http_request($full_url)) {
+    $res_arr = $result->data;
+    $xml = new SimpleXMLElement($res_arr);
+    $xmlArr = json_decode(json_encode($xml), true);
+    if (array_key_exists('Record', $xmlArr)) {
+      return($xmlArr['Record']);
+    } else {
+      drupal_set_message(t('Данные не найдены в базе ЦБР.'));
+    }
+  } else {
+    return FALSE;
+  }
+}
+/**
+ * Получение таблицы с кодами валют.
+ */
+function currency_get_num_val () {
+  $url = 'http://www.cbr.ru/scripts/XML_valFull.asp';
+  //$full_url = url($url, array('query' => $data));
+  if ($result = drupal_http_request($url)) {
+    $res_arr = $result->data;
+    $xml = new SimpleXMLElement($res_arr);
+    $xmlArr = json_decode(json_encode($xml), true);
+    return($xmlArr['Item']);
+  } else {
+    return FALSE;
+  }
+}
+/**
+ * Список валют для select в формах.
+ */
+function currency_get_num_code_select_options(){
+    $options = array();
+    $options_source = currency_get_num_val ();
+    asort($options_source);
+    while($item = current($options_source)) {
+      $options[$item['@attributes']['ID']] = $item['Name'];
+      next($options_source);
+    }
+    return $options;
+}
+/**
+ * Форма для загрузки курсов валют в БД.
+ */
+function currency_load_data_form ($form, &$form_state) {
+  $format = 'd.m.Y';
+  $unix_time = strtotime("today");
+  $date_end = date("Y-m-d H:i:s",$unix_time);
+  $date_start = date("Y-m-d H:i:s", strtotime("-7 days"));
+  $form['date_begin'] = array(
+     '#weight' => '1',
+     '#type' => 'date_popup',
+     '#title' => t('Выберите дату начала периода'),
+     '#default_value' => $date_start,
+     '#date_format' => $format,
+     '#date_label_position' => 'within',
+     '#date_year_range' => '-1:0',
+  );
+  $form['date_end'] = array(
+     '#weight' => '2',
+     '#type' => 'date_popup',
+     '#title' => t('Выберите дату окончания периода'),
+     '#default_value' => $date_end,
+     '#date_format' =>  $format,
+     '#date_label_position' => 'within',
+     '#date_year_range' => '-1:0',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Загрузить данные за выбранный период'),
+    '#weight' => '3',
+    '#ajax' => array(
+        'callback' => 'currency_load_data_form_submition',
+        'wrapper' => 'replace_div',
+        'method' => 'replace',
+        'effect' => 'fade',
+      ),
+    );
+    $form['wrapper'] = array(
+      '#type' => 'item',
+      '#title' => t('Данные за выбранный отрезок времени'),
+      '#markup' => "<div id='replace_div'></div>",
+      '#weight' => '5',
+    );
+  return $form;
+}
+/**
+ * Отображение графика курса выбранной валюты за период. Отображение данных в формате JSON.
+ */
+function currency_chart_form ($form, &$form_state) {
+  $select_options = currency_get_num_code_select_options();
+  $form['currency'] = array(
+    '#weight' => '1',
+    '#key_type' => 'associative',
+    '#multiple_toggle' => '1',
+    '#default_value' => array_values($select_options)[0],
+    '#type' => 'select',
+    '#options' => $select_options,
+    '#title' => 'Выберите валюту',
+  );
+  $format = 'd.m.Y';
+  $unix_time = strtotime("today");
+  $date_end = date("Y-m-d H:i:s",$unix_time);
+  $date_start = date("Y-m-d H:i:s", strtotime("-7 days"));
+  $form['date_begin'] = array(
+     '#weight' => '2',
+     '#type' => 'date_popup',
+     '#title' => t('Выберите дату начала периода'),
+     '#default_value' => $date_start,
+     '#date_format' => $format,
+     '#date_label_position' => 'within',
+     '#date_year_range' => '-20:0',
+  );
+  $form['date_end'] = array(
+     '#weight' => '3',
+     '#type' => 'date_popup',
+     '#title' => t('Выберите дату окончания периода'),
+     '#default_value' => $date_end,
+     '#date_format' =>  $format,
+     '#date_label_position' => 'within',
+     '#date_year_range' => '-20:0',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Показать график'),
+    '#weight' => '6',
+    '#ajax' => array(
+      'callback' => 'currency_chart_form_ajax_callback',
+      'wrapper' => 'replace_div',
+      'method' => 'replace',
+      'effect' => 'fade',
+    ),
+    );
+    $form['wrapper'] = array(
+      '#type' => 'item',
+      '#title' => t('График'),
+      '#markup' => "<div id='replace_div'></div>",
+      '#weight' => '6',
+    );
+  return $form;
+}
+/**
+ * Отображение данных в формате JSON.
+ */
+function currency_chart_form_json_ajax_callback($form, &$form_state) {
+  $date_begin = date("d/m/Y", strtotime($form_state['values']['date_begin']));
+  $date_end = date("d/m/Y", strtotime($form_state['values']['date_end']));
+  $currency = $form_state['values']['currency'];
+  $rangeArr = currency_get_range ($date_begin, $date_end, $currency);
+  if ($rangeArr){
+    return ("<div id='json_wr'>".json_encode($rangeArr)."</div>");
+  } else {
+    return ("<div id='json_wr'>No Chart!</div>");
+  }
+}
+/**
+ * Построение графика курса валюты. Использует JS библиотеку highcharts и модуль Visualization.
+ */
+function build_chart($form, &$form_state) {
+  $date_begin = date("d/m/Y", strtotime($form_state['values']['date_begin']));
+  $date_end = date("d/m/Y", strtotime($form_state['values']['date_end']));
+  $currency = $form_state['values']['currency'];
+  $range = currency_get_range ($date_begin, $date_end, $currency);
+  if (is_array($range) && isset($range[2]) && count($range) < 100) {
+    $range_full = $range;
+  } else if (is_array($range) && count($range) > 100) {
+    if (intdiv(count($range), 100) >= 100) {
+      $f_div = intdiv(count($range), 100);
+    } else {
+      $f_div = 24;
+    }
+    $range_chunked = array_chunk($range, $f_div);
+    $chunk_count = count($range_chunked);
+    $range_full = array();
+    for ($i = 0; $i < $chunk_count; $i++) {
+      $range_full[] = array(
+        '@attributes' => array(
+            'Date' =>  $range_chunked[$i][0]['@attributes']['Date']
+          ),
+        'Value' => $range_chunked[$i][0]['Value'],
+        'Nominal' => $range_chunked[$i][0]['Nominal'],
+      );
+    }
+    $opt_arr = array();
+    foreach ($range_full as $item) {
+      $opt_arr[] = array(
+        'date' => $item['@attributes']['Date'],
+        'rate' => floatval($item['Value'])
+      );
+    }
+  }
+  if (isset($range_full)) {
+    $options_line = array(
+      'title' => 'Курс к рублю (номинал сравниваемой валюты = '.$range_full[0]['Nominal'].')',
+      'fields' => array(
+        'rate' => array(
+          'label' => t('RUB'),
+          'enabled' => TRUE,
+        ),
+      ),
+      'xAxis' => array(
+        'labelField' => 'date',
+      ),
+      'yAxis' => array(
+        'labelField' => 'RUB',
+        'valueDecimals' => 2,
+        'min' => 0.00
+      ),
+      'data' => $opt_arr,
+      'type' => 'line',
+    );
+    $build['line'] =  array(
+      '#theme' => 'visualization',
+      '#options' => $options_line,
+    );
+    return (drupal_render($build));
+  } else {
+    drupal_set_message(t('Не хватает данныx для построения графика!'));
+  }
+}
+/**
+ * Функция-обертка для build_chart().
+ */
+function currency_chart_form_ajax_callback($form, &$form_state) {
+  $date_begin = date("d.m.Y", strtotime($form_state['values']['date_begin']));
+  $date_end = date("d.m.Y", strtotime($form_state['values']['date_end']));
+  $currency = $form_state['values']['currency'];
+  $build = build_chart($form, $form_state);
+  return ('<div id="replace_div"><span><button><a href="/load_json/'.$date_begin.'_'.$date_end.'_'.$currency.'" target="_blank">Загрузить в JSON</a></button></span>'.$build.'</div>');
+}
+/**
+ * Отправка формы загрузки данных в БД.
+ * Проверяет есть ли ноды с курсами на каждую дату выбранного периода и
+ * создает в случае отсутствия.
+ * Возвращает html рендера представления с курсами за выбранные даты.
+ */
+function currency_load_data_form_submition($form, &$form_state){
+  $date_arr = array();
+  $date_filter_str = '';
+  $date_begin = new DateTime(date("d.m.Y", strtotime($form_state['values']['date_begin'])));
+  $date_end = new DateTime(date("d.m.Y", strtotime($form_state['values']['date_end'])));
+  $int = DateInterval::createFromDateString('1 day');
+  $date_period = new DatePeriod($date_begin, $int, $date_end);
+  $query = db_select('node', 'n');
+  $query->join('field_data_field_cur_date_formated', 'd', 'd.entity_id=n.nid');
+  $query
+    ->fields('n', array('nid', 'title', 'created'))
+    ->fields('d', array('field_cur_date_formated_value'))
+    ->condition('n.type', 'currency');
+  $result = $query->execute();
+  while ($record = $result->fetchAssoc()) {
+    if (!in_array($record['field_cur_date_formated_value'], $date_arr)) {
+      $date_arr[] = $record['field_cur_date_formated_value'];
+    }
+  }
+  foreach ($date_period as $date) {
+    $date_filter_str .= $date->format("d.m.Y").' ';
+    static $node_counter = 0;
+    if (!in_array($date->format("d.m.Y"), $date_arr)) {
+      $node_counter++;
+      currency_save_rate ($date->format("d.m.Y"));
+    }
+  }
+  if ($node_counter > 0) {
+    drupal_set_message(t('Загружены данные для %num_date дат(ы/у).', array('%num_date' => $node_counter)));
+  } else {
+    drupal_set_message(t('Данные уже в базе за данный период.'));
+  }
+  $views = views_get_view('chart_view');
+  $views->set_display('block_load_page');
+  $filter = $views->get_item($views->current_display, 'filter', 'field_cur_date_formated_value');
+  $filter['value'] = $date_filter_str;
+  $views->set_item($views->current_display, 'filter', 'field_cur_date_formated_value', $filter);
+  $views->pre_execute();
+  $views->execute();
+  $chart = $views->render('block_load_page');
+  if ($chart){
+    return ("<div id='replace_div'>$chart</div>");
+  } else {
+    return ("<div id='replace_div'>No data!</div>");
+  }
+}
+/**
+ * Сохранение ноды с данными о курсе валюты на дату в БД.
+ * При сохранении все валюты приводятся к номиналу 1 (номинал сохраняется в БД).
+ */
+function currency_save_rate ($date_of_measure) {
+  $dateConvert = str_replace(".", "/", $date_of_measure);
+  if ($curObj = currency_get_rate ($dateConvert)) {
+    $curArr = json_decode(json_encode($curObj), true);
+    foreach ($curArr['Valute'] as $valute) {
+      if ($valute['Nominal'] > 1) {
+        $val =  floatval($valute['Value'])/floatval($valute['Nominal']);
+      } else {
+        $val =  floatval($valute['Value']);
+      }
+      $node = new stdClass();
+      $node->type = 'currency';
+      node_object_prepare($node);
+      $node->title = $valute['Name'];
+      $node->language = LANGUAGE_NONE;
+      $node->field_num_code[$node->language][0]['value'] = $valute['NumCode'];
+      $node->field_char_code[$node->language][0]['value']  =  $valute['CharCode'];
+      $node->field_nominal[$node->language][0]['value']  = $valute['Nominal'];
+      $node->field_cur_value[$node->language][0]['value']  = $val;
+      $node->field_cur_date[$node->language][0]['value']  = strtotime($dateConvert);
+      $node->field_cur_date_formated[$node->language][0]['value']  = $date_of_measure;
+      $node->uid = 1;
+      $node->status = 1;
+      $node->promote = 0;
+      $node->comment = 0;
+      $node = node_submit($node);
+      node_save($node);
+    }
+  }
+}
+/**
+ * hook_cron_queue_info()
+ */
+function currency_cron_queue_info() {
+  $queues['currency'] = array(
+    'worker callback' => 'currency_rates_update',
+    'time' => 30,
+  );
+  return $queues;
+}
+/**
+ * callback для currency_cron_queue_info()
+ * Проверяет есть ли в БД ноды с курсами валют с учетом того, что ЦБ обновляет курс ближе к вечеру и
+ * в случае отсутствия создает их.
+ */
+function currency_rates_update() {
+  static $chk = 0;
+  $date = date("d.m.Y", strtotime('today -12 hours'));
+  $query = db_select('node', 'n');
+  $query->join('field_data_field_cur_date_formated', 'd', 'd.entity_id=n.nid');
+  $query
+    ->fields('n', array('nid', 'title', 'created'))
+    ->fields('d', array('field_cur_date_formated_value'))
+    ->condition('d.field_cur_date_formated_value', $date)
+    ->condition('n.type', 'currency');
+  $result = $query->execute();
+  while ($record = $result->fetchAssoc()) {
+    $chk++;
+  }
+  if ($chk == 0) {
+    currency_save_rate ($date);
+  }
+}
+
+?>
