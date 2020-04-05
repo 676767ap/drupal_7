@@ -263,15 +263,15 @@ function build_chart($form, &$form_state) {
         'Nominal' => $range_chunked[$i][0]['Nominal'],
       );
     }
-    $opt_arr = array();
-    foreach ($range_full as $item) {
-      $opt_arr[] = array(
-        'date' => $item['@attributes']['Date'],
-        'rate' => floatval($item['Value'])
-      );
-    }
   }
-  if (isset($range_full)) {
+  $opt_arr = array();
+  foreach ($range_full as $item) {
+    $opt_arr[] = array(
+      'date' => $item['@attributes']['Date'],
+      'rate' => floatval($item['Value'])
+    );
+  }
+  if (isset($opt_arr[0])) {
     $options_line = array(
       'title' => 'Курс к рублю (номинал сравниваемой валюты = '.$range_full[0]['Nominal'].')',
       'fields' => array(
@@ -429,5 +429,4 @@ function currency_rates_update() {
     currency_save_rate ($date);
   }
 }
-
 ?>
