@@ -91,6 +91,12 @@ function currency_views_default_views() {
   $handler->display->display_options['header']['area']['empty'] = TRUE;
   $handler->display->display_options['header']['area']['content'] = '<button><a href="/exchange">График курса валюты</a></button><button><a href="/load_data">Загрузка данных</a></button>';
   $handler->display->display_options['header']['area']['format'] = 'full_html';
+  $handler->display->display_options['defaults']['footer'] = FALSE;
+  /* Footer: Global: View area */
+  $handler->display->display_options['footer']['view']['id'] = 'view';
+  $handler->display->display_options['footer']['view']['table'] = 'views';
+  $handler->display->display_options['footer']['view']['field'] = 'view';
+  $handler->display->display_options['footer']['view']['view_to_insert'] = 'chart_view:page_all_days_rates_chart';
   $handler->display->display_options['defaults']['fields'] = FALSE;
   /* Field: Content: Character currency code */
   $handler->display->display_options['fields']['field_char_code']['id'] = 'field_char_code';
@@ -304,6 +310,97 @@ function currency_views_default_views() {
   $handler->display->display_options['filters']['field_cur_date_formated_value']['expose']['remember_roles'] = array(
     2 => '2',
   );
+
+  /* Display: All days rates chart */
+  $handler = $view->new_display('page', 'All days rates chart', 'page_all_days_rates_chart');
+  $handler->display->display_options['defaults']['group_by'] = FALSE;
+  $handler->display->display_options['defaults']['pager'] = FALSE;
+  $handler->display->display_options['pager']['type'] = 'none';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
+  $handler->display->display_options['defaults']['style_plugin'] = FALSE;
+  $handler->display->display_options['style_plugin'] = 'chart';
+  $handler->display->display_options['style_options']['grouping'] = array(
+    0 => array(
+      'field' => 'title',
+      'rendered' => TRUE,
+      'rendered_strip' => FALSE,
+    ),
+  );
+  $handler->display->display_options['style_options']['yaxis_min'] = '0';
+  $handler->display->display_options['style_options']['label_field'] = 'field_cur_date_formated';
+  $handler->display->display_options['style_options']['data_fields'] = array(
+    'field_cur_value' => 'field_cur_value',
+    'field_cur_date_formated' => 'field_cur_date_formated',
+    'title' => 0,
+  );
+  $handler->display->display_options['style_options']['field_colors'] = array(
+    'title' => '#0d233a',
+    'field_cur_value' => '#8bbc21',
+    'field_cur_date_formated' => '#910000',
+  );
+  $handler->display->display_options['defaults']['style_options'] = FALSE;
+  $handler->display->display_options['defaults']['row_plugin'] = FALSE;
+  $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['defaults']['header'] = FALSE;
+  $handler->display->display_options['defaults']['fields'] = FALSE;
+  /* Field: Content: Title */
+  $handler->display->display_options['fields']['title']['id'] = 'title';
+  $handler->display->display_options['fields']['title']['table'] = 'node';
+  $handler->display->display_options['fields']['title']['field'] = 'title';
+  $handler->display->display_options['fields']['title']['label'] = 'Название';
+  $handler->display->display_options['fields']['title']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['title']['link_to_node'] = FALSE;
+  /* Field: Content: Currency rate value */
+  $handler->display->display_options['fields']['field_cur_value']['id'] = 'field_cur_value';
+  $handler->display->display_options['fields']['field_cur_value']['table'] = 'field_data_field_cur_value';
+  $handler->display->display_options['fields']['field_cur_value']['field'] = 'field_cur_value';
+  $handler->display->display_options['fields']['field_cur_value']['label'] = 'Курс';
+  $handler->display->display_options['fields']['field_cur_value']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['field_cur_value']['settings'] = array(
+    'thousand_separator' => '',
+    'decimal_separator' => '.',
+    'scale' => '2',
+    'prefix_suffix' => 1,
+  );
+  /* Field: Content: Date of measure in humanreadable form */
+  $handler->display->display_options['fields']['field_cur_date_formated']['id'] = 'field_cur_date_formated';
+  $handler->display->display_options['fields']['field_cur_date_formated']['table'] = 'field_data_field_cur_date_formated';
+  $handler->display->display_options['fields']['field_cur_date_formated']['field'] = 'field_cur_date_formated';
+  $handler->display->display_options['fields']['field_cur_date_formated']['label'] = 'Дата';
+  $handler->display->display_options['fields']['field_cur_date_formated']['element_label_colon'] = FALSE;
+  $handler->display->display_options['defaults']['sorts'] = FALSE;
+  /* Sort criterion: Content: Date of measure (field_cur_date) */
+  $handler->display->display_options['sorts']['field_cur_date_value_1']['id'] = 'field_cur_date_value_1';
+  $handler->display->display_options['sorts']['field_cur_date_value_1']['table'] = 'field_data_field_cur_date';
+  $handler->display->display_options['sorts']['field_cur_date_value_1']['field'] = 'field_cur_date_value';
+  /* Sort criterion: Content: Title */
+  $handler->display->display_options['sorts']['title']['id'] = 'title';
+  $handler->display->display_options['sorts']['title']['table'] = 'node';
+  $handler->display->display_options['sorts']['title']['field'] = 'title';
+  $handler->display->display_options['defaults']['filter_groups'] = FALSE;
+  $handler->display->display_options['defaults']['filters'] = FALSE;
+  /* Filter criterion: Content: Published status */
+  $handler->display->display_options['filters']['status']['id'] = 'status';
+  $handler->display->display_options['filters']['status']['table'] = 'node';
+  $handler->display->display_options['filters']['status']['field'] = 'status';
+  $handler->display->display_options['filters']['status']['value'] = 1;
+  $handler->display->display_options['filters']['status']['group'] = 1;
+  $handler->display->display_options['filters']['status']['expose']['operator'] = FALSE;
+  /* Filter criterion: Content: Type */
+  $handler->display->display_options['filters']['type']['id'] = 'type';
+  $handler->display->display_options['filters']['type']['table'] = 'node';
+  $handler->display->display_options['filters']['type']['field'] = 'type';
+  $handler->display->display_options['filters']['type']['value'] = array(
+    'currency' => 'currency',
+  );
+  $handler->display->display_options['filters']['type']['group'] = 1;
+  $handler->display->display_options['path'] = 'all_days_rates';
+  $handler->display->display_options['menu']['type'] = 'normal';
+  $handler->display->display_options['menu']['title'] = 'Курсы валют';
+  $handler->display->display_options['menu']['weight'] = '0';
+  $handler->display->display_options['menu']['name'] = 'main-menu';
+  $handler->display->display_options['menu']['context'] = 0;
+  $handler->display->display_options['menu']['context_only_inline'] = 0;
   $translatables['chart_view'] = array(
     t('Master'),
     t('Курс'),
@@ -329,6 +426,7 @@ function currency_views_default_views() {
     t('Block for load page'),
     t('Курс за выбранный период'),
     t('Date of measure in humanreadable form (field_cur_date_formated)'),
+    t('All days rates chart'),
   );
   $views[$view->name] = $view;
   return $views;
