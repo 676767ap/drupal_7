@@ -243,6 +243,7 @@ function build_chart($form, &$form_state) {
   $date_end = date("d/m/Y", strtotime($form_state['values']['date_end']));
   $currency = $form_state['values']['currency'];
   $range = currency_get_range ($date_begin, $date_end, $currency);
+  $range_full = array();
   if (is_array($range) && isset($range[2]) && count($range) < 100) {
     $range_full = $range;
   } else if (is_array($range) && count($range) > 100) {
@@ -265,13 +266,15 @@ function build_chart($form, &$form_state) {
     }
   }
   $opt_arr = array();
-  foreach ($range_full as $item) {
-    $opt_arr[] = array(
-      'date' => $item['@attributes']['Date'],
-      'rate' => floatval($item['Value'])
-    );
+  if (isset($range_full[1])) {
+    foreach ($range_full as $item) {
+      $opt_arr[] = array(
+        'date' => $item['@attributes']['Date'],
+        'rate' => floatval($item['Value'])
+      );
+    }
   }
-  if (isset($opt_arr[0])) {
+  if (isset($opt_arr[1])) {
     $options_line = array(
       'title' => 'Курс к рублю (номинал сравниваемой валюты = '.$range_full[0]['Nominal'].')',
       'fields' => array(
